@@ -9,7 +9,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   const menuItems = [
     { id: 'home', label: 'Home', icon: Home, roles: ['admin', 'tech'] },
     { id: 'registration', label: 'Data Registration', icon: Database, roles: ['admin', 'tech'] },
-    { id: 'settings', label: 'Ajustes', icon: Settings, roles: ['admin'] }, // Only for admin
+    { id: 'settings', label: 'Settings', icon: Settings, roles: ['admin'] }, // Only for admin
   ];
 
   const visibleMenuItems = menuItems.filter(item => item.roles.includes(user?.role));
@@ -67,7 +67,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
           className="w-full flex items-center space-x-3 px-4 py-2 text-slate-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
         >
           <LogOut size={18} />
-          <span className="text-sm font-medium">Cerrar Sesión</span>
+          <span className="text-sm font-medium">Logout</span>
         </button>
       </div>
     </aside>

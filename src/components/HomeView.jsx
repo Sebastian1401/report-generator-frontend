@@ -27,8 +27,8 @@ export default function HomeView({ setActiveTab }) {
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">Panel Principal</h1>
-        <p className="text-slate-500 mt-2">Seleccione un módulo para comenzar.</p>
+        <h1 className="text-3xl font-bold text-slate-900">Main Dashboard</h1>
+        <p className="text-slate-500 mt-2">Select a module to begin.</p>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
@@ -60,7 +60,7 @@ export default function HomeView({ setActiveTab }) {
                 }}
                 className="w-full flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white py-3 px-4 rounded-lg transition-colors font-medium"
               >
-                <span>Abrir Módulo</span>
+                <span>Open Module</span>
                 <ChevronRight size={18} />
               </button>
             </div>
