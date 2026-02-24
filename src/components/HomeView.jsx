@@ -1,6 +1,8 @@
 import { Database, FileText, ChevronRight } from 'lucide-react';
 
 export default function HomeView({ setActiveTab }) {
+  console.log('[HomeView] Component rendered');
+
   const modules = [
     {
       id: 'registration',
@@ -52,7 +54,10 @@ export default function HomeView({ setActiveTab }) {
               </div>
 
               <button 
-                onClick={() => setActiveTab(mod.id)}
+                onClick={() => {
+                  console.log(`[HomeView] Module selected: ${mod.id}`);
+                  setActiveTab(mod.id);
+                }}
                 className="w-full flex items-center justify-center space-x-2 bg-slate-900 hover:bg-slate-800 text-white py-3 px-4 rounded-lg transition-colors font-medium"
               >
                 <span>Abrir Módulo</span>
