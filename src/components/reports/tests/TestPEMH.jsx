@@ -67,15 +67,21 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     const payload = [];
+    let hasErrors = false; // NUEVA: Bandera de error
 
     initialTanks.forEach(tank => {
         if (excludedTankIds.includes(tank.id)) return;
 
         tank.compartments.forEach(comp => {
-            // NUEVO: Validar si el compartimento específico está excluido
             if (excludedCompIds.includes(comp.id)) return;
 
             const data = readings[comp.id];
+
+            if (!data.start_time || !data.end_time || data.initial_height === '' || data.final_height === '') {
+                console.error(`[TestPEMH] Error: Missing data for Compartment ID ${comp.id} in Tank ${tank.code}`, data);
+                hasErrors = true;
+            }
+
             payload.push({
                 work_order_id: workOrderId,
                 tank_id: tank.id,
@@ -88,7 +94,13 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
         });
     });
 
-    console.log('[TestPEMH] Payload generated:', payload);
+    if (hasErrors) {
+        console.error('[TestPEMH] Payload generation aborted due to missing fields.');
+        alert('Por favor complete todos los campos de los compartimentos activos.');
+        return;
+    }
+
+    console.log('[TestPEMH] Payload generated successfully:', payload);
     onSave(payload);
   };
 
@@ -205,9 +217,10 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                                     </label>
                                                     <input 
                                                         type="time" 
-                                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-900 text-white focus:ring-1 focus:ring-blue-500 outline-none" // Estilo dark para inputs según tu imagen
+                                                        className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-900 text-white focus:ring-1 focus:ring-blue-500 outline-none"
                                                         value={readings[comp.id]?.start_time || ''}
                                                         onChange={(e) => handleInputChange(comp.id, 'start_time', e.target.value)}
+                                                        required
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -219,6 +232,7 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-900 text-white focus:ring-1 focus:ring-blue-500 outline-none"
                                                         value={readings[comp.id]?.end_time || ''}
                                                         onChange={(e) => handleInputChange(comp.id, 'end_time', e.target.value)}
+                                                        required
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -231,6 +245,7 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                                         placeholder="0.00"
                                                         value={readings[comp.id]?.initial_height || ''}
                                                         onChange={(e) => handleInputChange(comp.id, 'initial_height', e.target.value)}
+                                                        required
                                                     />
                                                 </div>
                                                 <div className="space-y-1">
@@ -243,6 +258,7 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                                         placeholder="0.00"
                                                         value={readings[comp.id]?.final_height || ''}
                                                         onChange={(e) => handleInputChange(comp.id, 'final_height', e.target.value)}
+                                                        required
                                                     />
                                                 </div>
                                             </div>
@@ -261,7 +277,8 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
 
             <div className="flex justify-end pt-4 border-t border-slate-200">
                 <button 
-                    type="submit" 
+                    type="submit"
+                    disabled={activeTanks.length === 0}
                     className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
                 >
                     <Save size={18} />
