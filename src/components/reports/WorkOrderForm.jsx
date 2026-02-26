@@ -3,6 +3,8 @@ import { Save, X, Calendar, FileText, MapPin, Plus, Trash2, ChevronRight, AlertC
 import TestPEMH from './tests/TestPEMH';
 import TestPESC from './tests/TestPESC';
 import TestPVSC from './tests/TestPVSC';
+import TestPECC from './tests/TestPECC';
+import TestPMC from './tests/TestPMC';
 
 export default function WorkOrderForm({ onCancel, onSave }) {
   console.log('[WorkOrderForm] Component rendered');
@@ -27,9 +29,9 @@ export default function WorkOrderForm({ onCancel, onSave }) {
   const [currentTest, setCurrentTest] = useState(null);
   
   const [formData, setFormData] = useState({
-    id: null, // Se generará al crear el draft
+    id: null,
     station_id: '',
-    station_name: '', // Guardamos el nombre para mostrarlo en el Hub
+    station_name: '',
     date: new Date().toISOString().split('T')[0],
     observations: '',
     status: 'DRAFT',
@@ -41,14 +43,12 @@ export default function WorkOrderForm({ onCancel, onSave }) {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  // PASO 1: Crear el Header de la Orden (Draft)
   const handleCreateDraft = (e) => {
     e.preventDefault();
     
     if (!formData.station_id) return alert('Select a station');
     if (!formData.date) return alert('Select a date');
 
-    // Simular creación en Backend
     const station = mockStations.find(s => s.id === Number(formData.station_id));
     const newId = Date.now();
 
@@ -60,11 +60,10 @@ export default function WorkOrderForm({ onCancel, onSave }) {
     };
 
     setFormData(draftOrder);
-    setViewMode('HUB'); // CAMBIO DE VISTA: Activamos el Hub
+    setViewMode('HUB');
     console.log('[WorkOrderForm] Draft created, switched to HUB mode:', draftOrder);
   };
 
-  // PASO 2: Agregar Pruebas (Simulación por ahora)
   const handleAddTest = (testType) => {
     if (!formData.test_tags.includes(testType)) {
         setFormData(prev => ({
@@ -73,20 +72,15 @@ export default function WorkOrderForm({ onCancel, onSave }) {
         }));
     }
     
-    if (['PEMH', 'PESC', 'PVSC'].includes(testType)) {
+    if (['PEMH', 'PESC', 'PVSC', 'PECC', 'PMC'].includes(testType)) {
         setCurrentTest(testType);
         setViewMode(`TEST_${testType}`);
-    } else {
-        alert(`Form for ${testType} is under construction (Dispensers next!).`);
     }
   };
 
   const handleSaveTest = (testData) => {
       console.log(`[WorkOrderForm] Received data for ${currentTest}:`, testData);
-      // Aquí podrías guardar estos datos en un estado temporal si quisieras
-      // o enviarlos al backend inmediatamente.
       
-      // Volver al Hub
       setViewMode('HUB');
       setCurrentTest(null);
   };
@@ -315,8 +309,16 @@ export default function WorkOrderForm({ onCancel, onSave }) {
         {viewMode === 'TEST_PVSC' && (
             <TestPVSC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
         )}
+
+        {viewMode === 'TEST_PECC' && (
+            <TestPECC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+        )}
+
+        {viewMode === 'TEST_PMC' && (
+            <TestPMC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+        )}
         
-      </div>
+        </div>
     </div>
   );
 }
