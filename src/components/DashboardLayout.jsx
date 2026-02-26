@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import Sidebar from './Sidebar';
 import HomeView from './HomeView';
-import RegistrationView from './RegistrationView'; // Nueva importación
+import RegistrationView from './RegistrationView';
+import WorkOrderList from './reports/WorkOrderList';
 import { useAuth } from '../context/AuthContext';
 
 export default function DashboardLayout() {
@@ -20,6 +21,9 @@ export default function DashboardLayout() {
         
         {/* Registration Module */}
         {activeTab === 'registration' && <RegistrationView />}
+
+        {/* reports Module */}
+        {activeTab === 'reports' && <WorkOrderList />}
 
         {/* Protected Settings View */}
         {activeTab === 'settings' && user?.role === 'admin' && (
