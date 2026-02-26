@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Save, X, Calendar, FileText, MapPin, Plus, Trash2, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import TestPEMH from './tests/TestPEMH';
+import TestPESC from './tests/TestPESC';
+import TestPVSC from './tests/TestPVSC';
 
 export default function WorkOrderForm({ onCancel, onSave }) {
   console.log('[WorkOrderForm] Component rendered');
@@ -13,18 +15,13 @@ export default function WorkOrderForm({ onCancel, onSave }) {
 
   const handleSmartClose = () => {
     if (viewMode.startsWith('TEST_')) {
-        // Si estoy en una prueba, la "X" funciona como "Volver"
         setViewMode('HUB');
         setCurrentTest(null);
     } else {
-        // Si estoy en creación o en el Hub, la "X" cierra el modal
         onCancel();
     }
   };
 
-  // ESTADOS DEL FORMULARIO
-  // 'CREATION': Llenando datos básicos
-  // 'HUB': Orden creada, agregando pruebas
   const [viewMode, setViewMode] = useState('CREATION');
 
   const [currentTest, setCurrentTest] = useState(null);
@@ -69,7 +66,6 @@ export default function WorkOrderForm({ onCancel, onSave }) {
 
   // PASO 2: Agregar Pruebas (Simulación por ahora)
   const handleAddTest = (testType) => {
-    // Agregamos el tag visualmente si no existe
     if (!formData.test_tags.includes(testType)) {
         setFormData(prev => ({
             ...prev,
@@ -77,11 +73,11 @@ export default function WorkOrderForm({ onCancel, onSave }) {
         }));
     }
     
-    if (testType === 'PEMH') {
-        setCurrentTest('PEMH');
-        setViewMode('TEST_PEMH');
+    if (['PEMH', 'PESC', 'PVSC'].includes(testType)) {
+        setCurrentTest(testType);
+        setViewMode(`TEST_${testType}`);
     } else {
-        alert(`Form for ${testType} is under construction.`);
+        alert(`Form for ${testType} is under construction (Dispensers next!).`);
     }
   };
 
@@ -309,14 +305,17 @@ export default function WorkOrderForm({ onCancel, onSave }) {
 
         {/* VIEW 3: TEST FORMS */}
         {viewMode === 'TEST_PEMH' && (
-          <TestPEMH
-          stationId={formData.station_id}
-          workOrderId={formData.id}
-          onCancel={() => setViewMode('HUB')}
-          onSave={handleSaveTest}
-          />
+            <TestPEMH stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
           )}
-          
+
+        {viewMode === 'TEST_PESC' && (
+            <TestPESC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+        )}
+
+        {viewMode === 'TEST_PVSC' && (
+            <TestPVSC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+        )}
+        
       </div>
     </div>
   );
