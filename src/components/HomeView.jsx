@@ -1,4 +1,4 @@
-import { Database, FileText, ChevronRight } from 'lucide-react';
+import { Database, ClipboardList, FileText, ChevronRight } from 'lucide-react';
 
 export default function HomeView({ setActiveTab }) {
   console.log('[HomeView] Component rendered');

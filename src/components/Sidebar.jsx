@@ -1,4 +1,4 @@
-import { Home, Database, Settings, LogOut, User as UserIcon } from 'lucide-react';
+import { Home, Database, ClipboardList, Settings, LogOut, User as UserIcon } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Sidebar({ activeTab, setActiveTab }) {
@@ -9,6 +9,7 @@ export default function Sidebar({ activeTab, setActiveTab }) {
   const menuItems = [
     { id: 'home', label: 'Home', icon: Home, roles: ['admin', 'tech'] },
     { id: 'registration', label: 'Data Registration', icon: Database, roles: ['admin', 'tech'] },
+    { id: 'reports', label: 'Reports', icon: ClipboardList, roles: ['admin', 'tech'] },
     { id: 'settings', label: 'Settings', icon: Settings, roles: ['admin'] }, // Only for admin
   ];
 
