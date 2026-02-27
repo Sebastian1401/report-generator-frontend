@@ -4,8 +4,8 @@ import StationForm from './StationForm';
 
 export default function StationList() {
   const [isCreating, setIsCreating] = useState(false);
+  const [editingStation, setEditingStation] = useState(null);
   
-  // Mock Data matching your Schema
   const [stations, setStations] = useState([
     {
       id: 1,
@@ -31,18 +31,30 @@ export default function StationList() {
     }
   ]);
 
-  console.log(`[StationList] Rendered. Mode: ${isCreating ? 'Creating' : 'List'}`);
+  console.log(`[StationList] Rendered. Mode: ${isCreating ? 'Creating' : editingStation ? 'Editing' : 'List'}`);
 
-  const handleSave = (newStation) => {
-    console.log('[StationList] Saving new station:', newStation);
-    setStations([...stations, newStation]);
+  const handleSave = (stationData) => {
+    if (editingStation) {
+      console.log('[StationList] Updating station:', stationData);
+      setStations(stations.map(s => s.id === stationData.id ? stationData : s));
+    } else {
+      console.log('[StationList] Saving new station:', stationData);
+      setStations([...stations, stationData]);
+    }
     setIsCreating(false);
+    setEditingStation(null);
   };
 
-  if (isCreating) {
+  const handleCancel = () => {
+    setIsCreating(false);
+    setEditingStation(null);
+  };
+
+  if (isCreating || editingStation) {
     return (
       <StationForm 
-        onCancel={() => setIsCreating(false)} 
+        initialData={editingStation} 
+        onCancel={handleCancel} 
         onSave={handleSave} 
       />
     );
@@ -96,8 +108,9 @@ export default function StationList() {
               </div>
             </div>
 
-            <button className="w-full py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors">
-              View Details
+            <button className="w-full py-2 border border-slate-200 text-slate-600 rounded-lg hover:bg-slate-50 text-sm font-medium transition-colors"
+              onClick={() => setEditingStation(station)}>
+              Edit Details
             </button>
           </div>
         ))}

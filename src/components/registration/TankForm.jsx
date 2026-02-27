@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Save, X, ToggleLeft, ToggleRight, Cylinder, Tag, Plus, Trash2 } from 'lucide-react';
+import { Save, X, ToggleLeft, ToggleRight, Cylinder, Tag, Plus } from 'lucide-react';
 
-export default function TankForm({ onCancel, onSave }) {
-  console.log('[TankForm] Component rendered');
+export default function TankForm({ onCancel, onSave, isNested = false, initialData = null }) {
+  console.log('[TankForm] Component rendered', isNested ? 'in NESTED mode' : 'in NORMAL mode');
 
   const mockStations = [
     { id: 1, name: 'EDS Principal' },
@@ -10,17 +10,17 @@ export default function TankForm({ onCancel, onSave }) {
   ];
 
   const mockFuelTypes = [
-    { id: 1, name: 'Gasolina Corriente', color: 'bg-yellow-400' },
-    { id: 2, name: 'Gasolina Extra', color: 'bg-red-500' },
-    { id: 3, name: 'Diesel', color: 'bg-slate-800 text-white' },
+    { id: 1, name: 'Gasolina Corriente', color: 'bg-red-500' },
+    { id: 2, name: 'Diesel', color: 'bg-yellow-400' },
+    { id: 3, name: 'Gasolina Extra', color: 'bg-blue-800 text-white' },
   ];
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState(initialData || {
     code: '',
     type: 'Horizontal',
-    material: 'Steel',
+    material: 'ASTM A36',
     installation_type: 'Underground',
-    tags: [], // Array de strings
+    tags: [],
     station_id: '',
     compartments: [
       { code: '', capacity_nominal: '', capacity_operational: '', fuel_type_id: '' }
@@ -29,11 +29,9 @@ export default function TankForm({ onCancel, onSave }) {
 
   const [isDual, setIsDual] = useState(false);
   
-  // Estado para la UI de Tags
   const [isAddingTag, setIsAddingTag] = useState(false);
   const [currentTag, setCurrentTag] = useState('');
 
-  // Helpers de formato numérico
   const formatNumber = (value) => {
     if (value === '' || value === undefined) return '';
     const number = Number(value.toString().replace(/[^0-9.]/g, ''));
@@ -60,7 +58,6 @@ export default function TankForm({ onCancel, onSave }) {
     setFormData(prev => ({ ...prev, compartments: updatedCompartments }));
   };
 
-  // --- LÓGICA DE TAGS ---
   const handleAddTag = () => {
     if (currentTag.trim()) {
       setFormData(prev => ({
@@ -81,11 +78,10 @@ export default function TankForm({ onCancel, onSave }) {
 
   const handleTagKeyDown = (e) => {
     if (e.key === 'Enter') {
-      e.preventDefault(); // Evitar submit del formulario
+      e.preventDefault();
       handleAddTag();
     }
   };
-  // ----------------------
 
   const toggleDualMode = () => {
     setIsDual(!isDual);
@@ -108,6 +104,25 @@ export default function TankForm({ onCancel, onSave }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     
+    if (!isNested && !formData.station_id) return alert('Por favor seleccione una Estación.');
+    if (!formData.code) return alert('Por favor ingrese el código del Tanque.');
+
+    const missingCompCode = formData.compartments.some(c => !c.code);
+    if (missingCompCode) return alert('Todos los compartimentos deben tener una nomenclatura/código.');
+
+    const missingFuel = formData.compartments.some(c => !c.fuel_type_id);
+    if (missingFuel) return alert('Seleccione el producto para todos los compartimentos.');
+
+    const missingCapacities = formData.compartments.some(
+      c => !c.capacity_nominal || !c.capacity_operational || Number(c.capacity_nominal) <= 0 || Number(c.capacity_operational) <= 0
+    );
+    if (missingCapacities) return alert('Debe ingresar la Capacidad Nominal y Operacional (mayores a 0) para todos los compartimentos.');
+
+    const invalidCapacities = formData.compartments.some(
+      c => Number(c.capacity_operational) > Number(c.capacity_nominal)
+    );
+    if (invalidCapacities) return alert('La capacidad Operacional no puede ser mayor a la Nominal en ningún compartimento.');
+
     const payload = {
         ...formData,
         compartments: formData.compartments.map(c => ({
@@ -118,19 +133,15 @@ export default function TankForm({ onCancel, onSave }) {
     };
 
     console.log('[TankForm] Payload ready for API:', payload);
-    
-    if (!formData.station_id || !formData.code) {
-      alert('Please fill in Station and Tank Code.');
-      return;
-    }
-
-    onSave({ ...payload, id: Date.now() });
+    onSave(initialData ? payload : { ...payload, id: Date.now() });
   };
 
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-2">
       <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-        <h3 className="text-lg font-bold text-slate-800">New Tank Registration</h3>
+        <h3 className="text-lg font-bold text-slate-800">
+          {isNested ? 'Add Tank Configuration' : initialData ? 'Edit Tank Details' : 'New Tank Registration'}
+        </h3>
         <button onClick={onCancel} className="text-slate-400 hover:text-slate-600 transition-colors">
           <X size={20} />
         </button>
@@ -145,19 +156,21 @@ export default function TankForm({ onCancel, onSave }) {
             Tank Specifications
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Station *</label>
-              <select
-                name="station_id"
-                value={formData.station_id}
-                onChange={handleTankChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none bg-white"
-                required
-              >
-                <option value="">Select Station...</option>
-                {mockStations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
+            {!isNested && (
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Station *</label>
+                <select
+                  name="station_id"
+                  value={formData.station_id}
+                  onChange={handleTankChange}
+                  className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none bg-white"
+                  required={!isNested}
+                >
+                  <option value="">Select Station...</option>
+                  {mockStations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
+            )}
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">Tank Code *</label>
@@ -179,7 +192,7 @@ export default function TankForm({ onCancel, onSave }) {
                 onChange={handleTankChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none bg-white"
               >
-                <option value="Steel">Steel (Acero)</option>
+                <option value="ASTM A36">ASTM A36 (Acero)</option>
                 <option value="Fiberglass">Fiberglass (Fibra)</option>
               </select>
             </div>
@@ -197,18 +210,6 @@ export default function TankForm({ onCancel, onSave }) {
               </select>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Type</label>
-              <select
-                name="type"
-                value={formData.type}
-                onChange={handleTankChange}
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none bg-white"
-              >
-                <option value="Horizontal">Horizontal</option>
-                <option value="Vertical">Vertical</option>
-              </select>
-            </div>
           </div>
         </div>
 
@@ -363,7 +364,7 @@ export default function TankForm({ onCancel, onSave }) {
             className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Save size={18} />
-            <span>Save Tank</span>
+            <span>{isNested ? 'Add to List' : initialData ? 'Update Tank' : 'Save Tank'}</span>
           </button>
         </div>
       </form>
