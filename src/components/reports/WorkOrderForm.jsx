@@ -6,8 +6,8 @@ import TestPVSC from './tests/TestPVSC';
 import TestPECC from './tests/TestPECC';
 import TestPMC from './tests/TestPMC';
 
-export default function WorkOrderForm({ onCancel, onSave }) {
-    console.log('[WorkOrderForm] Component rendered');
+export default function WorkOrderForm({ onCancel, onSave, initialData = null }) {
+    console.log('[WorkOrderForm] Component rendered', initialData ? 'in EDIT mode' : 'in CREATE mode');
 
     const mockStations = [
         { id: 1, name: 'EDS Principal' },
@@ -24,18 +24,18 @@ export default function WorkOrderForm({ onCancel, onSave }) {
         }
     };
 
-    const [viewMode, setViewMode] = useState('CREATION');
-
+    const [viewMode, setViewMode] = useState(initialData ? 'HUB' : 'CREATION');
     const [currentTest, setCurrentTest] = useState(null);
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState(initialData || {
         id: null,
         station_id: '',
         station_name: '',
         date: new Date().toISOString().split('T')[0],
         observations: '',
         status: 'DRAFT',
-        test_tags: []
+        test_tags: [],
+        test_data: {}
     });
 
     const handleChange = (e) => {
@@ -65,13 +65,6 @@ export default function WorkOrderForm({ onCancel, onSave }) {
     };
 
     const handleAddTest = (testType) => {
-        if (!formData.test_tags.includes(testType)) {
-            setFormData(prev => ({
-                ...prev,
-                test_tags: [...prev.test_tags, testType]
-            }));
-        }
-
         if (['PEMH', 'PESC', 'PVSC', 'PECC', 'PMC'].includes(testType)) {
             setCurrentTest(testType);
             setViewMode(`TEST_${testType}`);
@@ -81,8 +74,36 @@ export default function WorkOrderForm({ onCancel, onSave }) {
     const handleSaveTest = (testData) => {
         console.log(`[WorkOrderForm] Received data for ${currentTest}:`, testData);
 
+        setFormData(prev => {
+            const newTags = prev.test_tags.includes(currentTest)
+                ? prev.test_tags
+                : [...prev.test_tags, currentTest];
+
+            return {
+                ...prev,
+                test_tags: newTags,
+                test_data: {
+                    ...prev.test_data,
+                    [currentTest]: testData
+                }
+            };
+        });
+
         setViewMode('HUB');
         setCurrentTest(null);
+    };
+
+    const handleRemoveTest = (testToRemove) => {
+        setFormData(prev => {
+            const newData = { ...prev.test_data };
+            delete newData[testToRemove];
+
+            return {
+                ...prev,
+                test_tags: prev.test_tags.filter(tag => tag !== testToRemove),
+                test_data: newData
+            };
+        });
     };
 
     const handleFinish = () => {
@@ -201,45 +222,39 @@ export default function WorkOrderForm({ onCancel, onSave }) {
                             <div className="space-y-4">
                                 <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Available Tests</h4>
 
-                                <button onClick={() => handleAddTest('PECC')} className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all group text-left">
-                                    <div>
-                                        <span className="font-bold text-slate-700 block group-hover:text-blue-600">PECC</span>
-                                        <span className="text-xs text-slate-500">Prueba Estanqueidad Cajas</span>
-                                    </div>
-                                    <Plus size={20} className="text-slate-300 group-hover:text-blue-500" />
-                                </button>
+                                {[
+                                    { id: 'PECC', title: 'PECC', desc: 'Prueba Estanqueidad Cajas' },
+                                    { id: 'PEMH', title: 'PEMH', desc: 'Prueba Estanqueidad Manhole' },
+                                    { id: 'PESC', title: 'PESC', desc: 'Prueba Estanqueidad Spill Container' },
+                                    { id: 'PVSC', title: 'PVSC', desc: 'Prueba Vacio Spill Container' },
+                                    { id: 'PMC', title: 'PMC', desc: 'Medición Conductividad' }
+                                ].map((test) => {
+                                    const isAdded = formData.test_tags.includes(test.id);
 
-                                <button onClick={() => handleAddTest('PEMH')} className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all group text-left">
-                                    <div>
-                                        <span className="font-bold text-slate-700 block group-hover:text-blue-600">PEMH</span>
-                                        <span className="text-xs text-slate-500">Prueba Estanqueidad Manhole</span>
-                                    </div>
-                                    <Plus size={20} className="text-slate-300 group-hover:text-blue-500" />
-                                </button>
-
-                                <button onClick={() => handleAddTest('PESC')} className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all group text-left">
-                                    <div>
-                                        <span className="font-bold text-slate-700 block group-hover:text-blue-600">PESC</span>
-                                        <span className="text-xs text-slate-500">Prueba Estanqueidad Spill Container</span>
-                                    </div>
-                                    <Plus size={20} className="text-slate-300 group-hover:text-blue-500" />
-                                </button>
-
-                                <button onClick={() => handleAddTest('PVSC')} className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all group text-left">
-                                    <div>
-                                        <span className="font-bold text-slate-700 block group-hover:text-blue-600">PVSC</span>
-                                        <span className="text-xs text-slate-500">Prueba Vacio Spill Container</span>
-                                    </div>
-                                    <Plus size={20} className="text-slate-300 group-hover:text-blue-500" />
-                                </button>
-
-                                <button onClick={() => handleAddTest('PMC')} className="w-full flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-md transition-all group text-left">
-                                    <div>
-                                        <span className="font-bold text-slate-700 block group-hover:text-blue-600">PMC</span>
-                                        <span className="text-xs text-slate-500">Medición Conductividad</span>
-                                    </div>
-                                    <Plus size={20} className="text-slate-300 group-hover:text-blue-500" />
-                                </button>
+                                    return (
+                                        <button
+                                            key={test.id}
+                                            onClick={() => handleAddTest(test.id)}
+                                            disabled={isAdded}
+                                            className={`w-full flex items-center justify-between p-4 border rounded-xl transition-all text-left ${isAdded
+                                                    ? 'bg-slate-50 border-slate-200 opacity-60 cursor-not-allowed'
+                                                    : 'bg-white border-slate-200 hover:border-blue-400 hover:shadow-md group'
+                                                }`}
+                                        >
+                                            <div>
+                                                <span className={`font-bold block ${isAdded ? 'text-slate-500' : 'text-slate-700 group-hover:text-blue-600'}`}>
+                                                    {test.title}
+                                                </span>
+                                                <span className="text-xs text-slate-500">{test.desc}</span>
+                                            </div>
+                                            {isAdded ? (
+                                                <CheckCircle2 size={20} className="text-green-500" />
+                                            ) : (
+                                                <Plus size={20} className="text-slate-300 group-hover:text-blue-500" />
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
 
                             {/* Columna Derecha: Lista de Pruebas Agregadas */}
@@ -263,14 +278,22 @@ export default function WorkOrderForm({ onCancel, onSave }) {
                                                     <div className="w-2 h-10 bg-blue-500 rounded-full"></div>
                                                     <div>
                                                         <h5 className="font-bold text-slate-800">{tag}</h5>
-                                                        <p className="text-xs text-slate-500">Status: Pending Data</p>
+                                                        <p className="text-xs text-green-600 font-medium flex items-center gap-1">
+                                                            Status: Data Saved
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2">
-                                                    <button className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg">
+                                                    <button
+                                                        onClick={() => { setCurrentTest(tag); setViewMode(`TEST_${tag}`); }}
+                                                        className="px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 border border-slate-200 rounded-lg"
+                                                    >
                                                         Edit Data
                                                     </button>
-                                                    <button className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors">
+                                                    <button
+                                                        onClick={() => handleRemoveTest(tag)}
+                                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                                    >
                                                         <Trash2 size={18} />
                                                     </button>
                                                 </div>
@@ -299,23 +322,23 @@ export default function WorkOrderForm({ onCancel, onSave }) {
 
                 {/* VIEW 3: TEST FORMS */}
                 {viewMode === 'TEST_PEMH' && (
-                    <TestPEMH stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+                    <TestPEMH stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} initialData={formData.test_data['PEMH']} />
                 )}
 
                 {viewMode === 'TEST_PESC' && (
-                    <TestPESC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+                    <TestPESC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} initialData={formData.test_data['PESC']} />
                 )}
 
                 {viewMode === 'TEST_PVSC' && (
-                    <TestPVSC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+                    <TestPVSC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} initialData={formData.test_data['PVSC']} />
                 )}
 
                 {viewMode === 'TEST_PECC' && (
-                    <TestPECC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+                    <TestPECC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} initialData={formData.test_data['PECC']} />
                 )}
 
                 {viewMode === 'TEST_PMC' && (
-                    <TestPMC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} />
+                    <TestPMC stationId={formData.station_id} workOrderId={formData.id} onCancel={() => setViewMode('HUB')} onSave={handleSaveTest} initialData={formData.test_data['PMC']} />
                 )}
 
             </div>

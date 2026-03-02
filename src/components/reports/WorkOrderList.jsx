@@ -35,6 +35,7 @@ export default function WorkOrderList() {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [editingOrder, setEditingOrder] = useState(null);
     const searchRef = useRef(null);
 
     useEffect(() => {
@@ -57,8 +58,15 @@ export default function WorkOrderList() {
 
     const handleSave = (newPayload) => {
         console.log('[WorkOrderList] Saving Final Order:', newPayload);
-        setWorkOrders([newPayload, ...workOrders]);
+
+        if (editingOrder) {
+            setWorkOrders(workOrders.map(wo => wo.id === newPayload.id ? newPayload : wo));
+        } else {
+            setWorkOrders([newPayload, ...workOrders]);
+        }
+
         setIsCreating(false);
+        setEditingOrder(null);
     };
 
     const visibleOrders = selectedStation
@@ -73,8 +81,14 @@ export default function WorkOrderList() {
         }
     };
 
-    if (isCreating) {
-        return <WorkOrderForm onCancel={() => setIsCreating(false)} onSave={handleSave} />;
+    if (isCreating || editingOrder) {
+        return (
+            <WorkOrderForm
+                initialData={editingOrder}
+                onCancel={() => { setIsCreating(false); setEditingOrder(null); }}
+                onSave={handleSave}
+            />
+        );
     }
 
     return (
@@ -178,7 +192,9 @@ export default function WorkOrderList() {
                                                 {wo.observations || '-'}
                                             </td>
                                             <td className="px-6 py-4 text-right">
-                                                <button className="text-blue-600 hover:text-blue-800 text-sm font-medium">Open</button>
+                                                <button onClick={() => setEditingOrder(wo)} className="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                                                    Open
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}

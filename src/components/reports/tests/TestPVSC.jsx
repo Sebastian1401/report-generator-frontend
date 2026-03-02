@@ -1,121 +1,151 @@
 import { useState, useEffect } from 'react';
-import { Save, ArrowLeft, Clock, Gauge, Trash2, RotateCcw, AlertCircle } from 'lucide-react'; // Cambié Ruler por Gauge
+import { Save, ArrowLeft, Clock, Gauge, Trash2, RotateCcw, AlertCircle } from 'lucide-react';
+import TestWrapper from './TestWrapper';
 
-export default function TestPVSC({ stationId, workOrderId, onCancel, onSave }) {
-  console.log('[TestPVSC] Component initialized');
+export default function TestPVSC({ stationId, workOrderId, onCancel, onSave, initialData }) {
+    console.log('[TestPVSC] Component initialized');
 
-  const initialTanks = [
-    {
-      id: 10,
-      code: "T-1",
-      compartments: [{ id: 101, name: "Diesel", color: "bg-yellow-100 text-yellow-800 border-yellow-200" }]
-    },
-    {
-      id: 20,
-      code: "T-2",
-      compartments: [
-        { id: 201, name: "Gasolina Corriente", color: "bg-red-100 text-red-800 border-red-200" },
-        { id: 202, name: "Gasolina Extra", color: "bg-blue-100 text-blue-800 border-blue-200" }
-      ]
-    }
-  ];
+    const initialTanks = [
+        {
+            id: 10,
+            code: "T-1",
+            compartments: [{ id: 101, name: "Diesel", color: "bg-yellow-100 text-yellow-800 border-yellow-200" }]
+        },
+        {
+            id: 20,
+            code: "T-2",
+            compartments: [
+                { id: 201, name: "Gasolina Corriente", color: "bg-red-100 text-red-800 border-red-200" },
+                { id: 202, name: "Gasolina Extra", color: "bg-blue-100 text-blue-800 border-blue-200" }
+            ]
+        }
+    ];
 
-  const [readings, setReadings] = useState({});
-  const [excludedTankIds, setExcludedTankIds] = useState([]);
-  const [excludedCompIds, setExcludedCompIds] = useState([]);
-
-  useEffect(() => {
-    const initialReadings = {};
-    initialTanks.forEach(tank => {
-        tank.compartments.forEach(comp => {
-            // Cambio de keys: pressure en lugar de height
-            initialReadings[comp.id] = {
-                start_time: '',
-                end_time: '',
-                initial_pressure: '',
-                final_pressure: ''
-            };
-        });
+    const [readings, setReadings] = useState(() => {
+        if (initialData && Array.isArray(initialData)) {
+            const mapped = {};
+            initialData.forEach(item => {
+                mapped[item.compartment_id] = {
+                    start_time: item.start_time || '',
+                    end_time: item.end_time || '',
+                    initial_pressure: item.initial_pressure !== undefined ? item.initial_pressure : '',
+                    final_pressure: item.final_pressure !== undefined ? item.final_pressure : ''
+                };
+            });
+            return mapped;
+        }
+        return {};
     });
-    setReadings(initialReadings);
-  }, []);
 
-  const handleInputChange = (compartmentId, field, value) => {
-    setReadings(prev => ({
-        ...prev,
-        [compartmentId]: { ...prev[compartmentId], [field]: value }
-    }));
-  };
+    const [excludedTankIds, setExcludedTankIds] = useState(() => {
+        if (initialData && Array.isArray(initialData)) {
+            const includedTankIds = initialData.map(item => item.tank_id);
+            return initialTanks
+                .filter(t => !includedTankIds.includes(t.id))
+                .map(t => t.id);
+        }
+        return [];
+    });
 
-  const toggleTankExclusion = (tankId) => setExcludedTankIds(prev => prev.includes(tankId) ? prev.filter(id => id !== tankId) : [...prev, tankId]);
-  const toggleCompExclusion = (compId) => setExcludedCompIds(prev => prev.includes(compId) ? prev.filter(id => id !== compId) : [...prev, compId]);
+    const [excludedCompIds, setExcludedCompIds] = useState(() => {
+        if (initialData && Array.isArray(initialData)) {
+            const includedCompIds = initialData.map(item => item.compartment_id);
+            const allComps = initialTanks.flatMap(t => t.compartments);
+            return allComps
+                .filter(c => !includedCompIds.includes(c.id))
+                .map(c => c.id);
+        }
+        return [];
+    });
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const payload = [];
-    let hasErrors = false;
+    useEffect(() => {
+        if (!initialData) {
+            const initialReadings = {};
+            initialTanks.forEach(tank => {
+                tank.compartments.forEach(comp => {
+                    initialReadings[comp.id] = {
+                        start_time: '',
+                        end_time: '',
+                        initial_pressure: '',
+                        final_pressure: ''
+                    };
+                });
+            });
+            setReadings(initialReadings);
+        }
+    }, [initialData]);
 
-    initialTanks.forEach(tank => {
-        if (excludedTankIds.includes(tank.id)) return;
+    const handleInputChange = (compartmentId, field, value) => {
+        setReadings(prev => ({
+            ...prev,
+            [compartmentId]: { ...prev[compartmentId], [field]: value }
+        }));
+    };
 
-        tank.compartments.forEach(comp => {
-            if (excludedCompIds.includes(comp.id)) return;
+    const toggleTankExclusion = (tankId) => setExcludedTankIds(prev => prev.includes(tankId) ? prev.filter(id => id !== tankId) : [...prev, tankId]);
+    const toggleCompExclusion = (compId) => setExcludedCompIds(prev => prev.includes(compId) ? prev.filter(id => id !== compId) : [...prev, compId]);
 
-            const data = readings[comp.id];
-            
-            // LOG DE ERRORES: Validación estricta
-            if (!data.start_time || !data.end_time || data.initial_pressure === '' || data.final_pressure === '') {
-                console.error(`[TestPVSC] Error: Missing data for Compartment ID ${comp.id} in Tank ${tank.code}`, data);
-                hasErrors = true;
-            }
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const payload = [];
+        let hasErrors = false;
 
-            payload.push({
-                work_order_id: workOrderId,
-                tank_id: tank.id,
-                compartment_id: comp.id,
-                start_time: data.start_time,
-                end_time: data.end_time,
-                initial_pressure: Number(data.initial_pressure),
-                final_pressure: Number(data.final_pressure)
+        initialTanks.forEach(tank => {
+            if (excludedTankIds.includes(tank.id)) return;
+
+            tank.compartments.forEach(comp => {
+                if (excludedCompIds.includes(comp.id)) return;
+
+                const data = readings[comp.id];
+
+                if (!data.start_time || !data.end_time || data.initial_pressure === '' || data.final_pressure === '') {
+                    console.error(`[TestPVSC] Error: Missing data for Compartment ID ${comp.id} in Tank ${tank.code}`, data);
+                    hasErrors = true;
+                }
+
+                payload.push({
+                    work_order_id: workOrderId,
+                    tank_id: tank.id,
+                    compartment_id: comp.id,
+                    start_time: data.start_time,
+                    end_time: data.end_time,
+                    initial_pressure: Number(data.initial_pressure),
+                    final_pressure: Number(data.final_pressure)
+                });
             });
         });
-    });
 
-    if (hasErrors) {
-        console.error('[TestPVSC] Payload generation aborted due to missing fields.');
-        alert('Por favor complete todos los campos de los compartimentos activos.');
-        return;
-    }
+        if (hasErrors) {
+            console.error('[TestPVSC] Payload generation aborted due to missing fields.');
+            alert('Por favor complete todos los campos de los compartimentos activos.');
+            return;
+        }
 
-    console.log('[TestPVSC] Payload generated successfully:', payload);
-    onSave(payload);
-  };
+        console.log('[TestPVSC] Payload generated successfully:', payload);
+        onSave(payload);
+    };
 
-  const activeTanks = initialTanks.filter(t => !excludedTankIds.includes(t.id));
-  const hiddenTanks = initialTanks.filter(t => excludedTankIds.includes(t.id));
+    const activeTanks = initialTanks.filter(t => !excludedTankIds.includes(t.id));
+    const hiddenTanks = initialTanks.filter(t => excludedTankIds.includes(t.id));
 
-  return (
-    <div className="animate-in slide-in-from-right-4 duration-300">
-        <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-                <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"><ArrowLeft size={20} /></button>
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800">PVSC Test Registration</h2>
-                    <p className="text-sm text-slate-500">Prueba de Vacío Spill Container</p>
-                </div>
-            </div>
-            {hiddenTanks.length > 0 && (
-                <div className="flex gap-2">
-                    {hiddenTanks.map(t => (
-                        <button key={t.id} onClick={() => toggleTankExclusion(t.id)} className="flex items-center text-xs bg-orange-50 text-orange-600 px-3 py-1 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors">
-                            <RotateCcw size={12} className="mr-1" /> Restore {t.code}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
+    const restoreButtons = hiddenTanks.length > 0 ? (
+        hiddenTanks.map(tank => (
+            <button key={tank.id} type="button" onClick={() => toggleTankExclusion(tank.id)} className="flex items-center text-xs bg-orange-50 text-orange-600 px-3 py-1 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors">
+                <RotateCcw size={12} className="mr-1" /> Restore Tank {tank.code}
+            </button>
+        ))
+    ) : null;
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+    return (
+        <TestWrapper
+            title="PVSC Test Registration"
+            subtitle="Prueba de Vacio de Spill Container Doble Pared"
+            onCancel={onCancel}
+            onSubmit={handleSubmit}
+            isSubmitDisabled={activeTanks.length === 0}
+            submitText="Save Data"
+            headerActions={restoreButtons}
+        >
             {activeTanks.length === 0 ? (
                 <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
                     <AlertCircle className="mx-auto text-slate-300 mb-2" size={32} />
@@ -180,11 +210,6 @@ export default function TestPVSC({ stationId, workOrderId, onCancel, onSave }) {
                     );
                 })
             )}
-
-            <div className="flex justify-end pt-4 border-t border-slate-200">
-                <button type="submit" disabled={activeTanks.length === 0} className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed"><Save size={18} /><span>Save PVSC Data</span></button>
-            </div>
-        </form>
-    </div>
-  );
+        </TestWrapper>
+    );
 }
