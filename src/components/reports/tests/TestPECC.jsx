@@ -1,104 +1,125 @@
 import { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Clock, Ruler, Trash2, RotateCcw, AlertCircle } from 'lucide-react';
+import TestWrapper from './TestWrapper';
 
-export default function TestPECC({ stationId, workOrderId, onCancel, onSave }) {
-  console.log('[TestPECC] Component initialized');
+export default function TestPECC({ stationId, workOrderId, onCancel, onSave, initialData }) {
+    console.log('[TestPECC] Component initialized');
 
-  // MOCK DATA: Dispensadores de la estación
-  const initialDispensers = [
-    { id: 1, code: "Dispenser 1", brand: "Gilbarco", model: "Encore 500" },
-    { id: 2, code: "Dispenser 2", brand: "Wayne", model: "Helix 5000" }
-  ];
+    const initialDispensers = [
+        { id: 1, code: "Dispenser 1", brand: "Gilbarco", model: "Encore 500" },
+        { id: 2, code: "Dispenser 2", brand: "Wayne", model: "Helix 5000" }
+    ];
 
-  const [readings, setReadings] = useState({});
-  const [excludedDispenserIds, setExcludedDispenserIds] = useState([]);
-
-  useEffect(() => {
-    const initialReadings = {};
-    initialDispensers.forEach(disp => {
-        initialReadings[disp.id] = {
-            start_time: '',
-            end_time: '',
-            initial_height: '',
-            final_height: ''
-        };
+    const [readings, setReadings] = useState(() => {
+        if (initialData && Array.isArray(initialData)) {
+            const mapped = {};
+            initialData.forEach(item => {
+                mapped[item.dispenser_id] = {
+                    start_time: item.start_time || '',
+                    end_time: item.end_time || '',
+                    initial_height: item.initial_height || '',
+                    final_height: item.final_height || ''
+                };
+            });
+            return mapped;
+        }
+        return {};
     });
-    setReadings(initialReadings);
-  }, []);
 
-  const handleInputChange = (dispId, field, value) => {
-    setReadings(prev => ({
-        ...prev,
-        [dispId]: { ...prev[dispId], [field]: value }
-    }));
-  };
+    const [excludedDispenserIds, setExcludedDispenserIds] = useState(() => {
+        if (initialData && Array.isArray(initialData)) {
+            const includedIds = initialData.map(item => item.dispenser_id);
+            return initialDispensers
+                .filter(d => !includedIds.includes(d.id))
+                .map(d => d.id);
+        }
+        return [];
+    });
 
-  const toggleDispenserExclusion = (dispId) => {
-    setExcludedDispenserIds(prev => 
-        prev.includes(dispId) ? prev.filter(id => id !== dispId) : [...prev, dispId]
-    );
-  };
+    useEffect(() => {
+        if (!initialData) {
+            const initialReadings = {};
+            initialDispensers.forEach(disp => {
+                initialReadings[disp.id] = {
+                    start_time: '',
+                    end_time: '',
+                    initial_height: '',
+                    final_height: ''
+                };
+            });
+            setReadings(initialReadings);
+        }
+    }, [initialData]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const payload = [];
-    let hasErrors = false;
+    const handleInputChange = (dispId, field, value) => {
+        setReadings(prev => ({
+            ...prev,
+            [dispId]: { ...prev[dispId], [field]: value }
+        }));
+    };
 
-    initialDispensers.forEach(disp => {
-        if (excludedDispenserIds.includes(disp.id)) return;
+    const toggleDispenserExclusion = (dispId) => {
+        setExcludedDispenserIds(prev =>
+            prev.includes(dispId) ? prev.filter(id => id !== dispId) : [...prev, dispId]
+        );
+    };
 
-        const data = readings[disp.id];
-        
-        if (!data.start_time || !data.end_time || data.initial_height === '' || data.final_height === '') {
-            console.error(`[TestPECC] Error: Missing data for Dispenser ID ${disp.id}`, data);
-            hasErrors = true;
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const payload = [];
+        let hasErrors = false;
+
+        initialDispensers.forEach(disp => {
+            if (excludedDispenserIds.includes(disp.id)) return;
+
+            const data = readings[disp.id];
+
+            if (!data.start_time || !data.end_time || data.initial_height === '' || data.final_height === '') {
+                console.error(`[TestPECC] Error: Missing data for Dispenser ID ${disp.id}`, data);
+                hasErrors = true;
+            }
+
+            payload.push({
+                work_order_id: workOrderId,
+                dispenser_id: disp.id,
+                start_time: data.start_time,
+                end_time: data.end_time,
+                initial_height: Number(data.initial_height),
+                final_height: Number(data.final_height)
+            });
+        });
+
+        if (hasErrors) {
+            console.error('[TestPECC] Payload generation aborted due to missing fields.');
+            alert('Por favor complete todos los campos de los dispensadores activos.');
+            return;
         }
 
-        payload.push({
-            work_order_id: workOrderId,
-            dispenser_id: disp.id,
-            start_time: data.start_time,
-            end_time: data.end_time,
-            initial_height: Number(data.initial_height),
-            final_height: Number(data.final_height)
-        });
-    });
+        console.log('[TestPECC] Payload generated successfully:', payload);
+        onSave(payload);
+    };
 
-    if (hasErrors) {
-        console.error('[TestPECC] Payload generation aborted due to missing fields.');
-        alert('Por favor complete todos los campos de los dispensadores activos.');
-        return;
-    }
+    const activeDispensers = initialDispensers.filter(d => !excludedDispenserIds.includes(d.id));
+    const hiddenDispensers = initialDispensers.filter(d => excludedDispenserIds.includes(d.id));
 
-    console.log('[TestPECC] Payload generated successfully:', payload);
-    onSave(payload);
-  };
+    const restoreButtons = hiddenDispensers.length > 0 ? (
+        hiddenDispensers.map(d => (
+            <button key={d.id} type="button" onClick={() => toggleDispenserExclusion(d.id)} className="flex items-center text-xs bg-orange-50 text-orange-600 px-3 py-1 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors">
+                <RotateCcw size={12} className="mr-1" /> Restore {d.code || `Pos ${d.position}`}
+            </button>
+        ))
+    ) : null;
 
-  const activeDispensers = initialDispensers.filter(d => !excludedDispenserIds.includes(d.id));
-  const hiddenDispensers = initialDispensers.filter(d => excludedDispenserIds.includes(d.id));
-
-  return (
-    <div className="animate-in slide-in-from-right-4 duration-300">
-        <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-                <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500"><ArrowLeft size={20} /></button>
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800">PECC Test Registration</h2>
-                    <p className="text-sm text-slate-500">Prueba Estanqueidad Cajas Contenedoras (Dispensadores)</p>
-                </div>
-            </div>
-            {hiddenDispensers.length > 0 && (
-                <div className="flex gap-2">
-                    {hiddenDispensers.map(d => (
-                        <button key={d.id} onClick={() => toggleDispenserExclusion(d.id)} className="flex items-center text-xs bg-orange-50 text-orange-600 px-3 py-1 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors">
-                            <RotateCcw size={12} className="mr-1" /> Restore {d.code}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
+    return (
+        <TestWrapper
+            title="PECC Test Registration"
+            subtitle="Prueba Estanqueidad Cajas Contenedoras (Dispensadores)"
+            onCancel={onCancel}
+            onSubmit={handleSubmit}
+            isSubmitDisabled={activeDispensers.length === 0}
+            submitText="Save Data"
+            headerActions={restoreButtons}
+        >
             {activeDispensers.length === 0 ? (
                 <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
                     <AlertCircle className="mx-auto text-slate-300 mb-2" size={32} />
@@ -138,10 +159,6 @@ export default function TestPECC({ stationId, workOrderId, onCancel, onSave }) {
                 ))
             )}
 
-            <div className="flex justify-end pt-4 border-t border-slate-200">
-                <button type="submit" disabled={activeDispensers.length === 0} className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-slate-300 disabled:cursor-not-allowed"><Save size={18} /><span>Save PECC Data</span></button>
-            </div>
-        </form>
-    </div>
-  );
+        </TestWrapper>
+    );
 }

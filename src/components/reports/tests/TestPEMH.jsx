@@ -1,142 +1,163 @@
 import { useState, useEffect } from 'react';
 import { Save, ArrowLeft, Clock, Ruler, Trash2, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import TestWrapper from './TestWrapper';
 
-export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
-  
-  // MOCK DATA: (Mantener tu lógica de carga de tanques)
-  const initialTanks = [
-    {
-      id: 10,
-      code: "T-1",
-      compartments: [
-        { id: 101, name: "Diesel", color: "bg-yellow-100 text-yellow-800 border-yellow-200" }
-      ]
-    },
-    {
-      id: 20,
-      code: "T-2",
-      compartments: [
-        { id: 201, name: "Gasolina Corriente", color: "bg-red-100 text-red-800 border-red-200" },
-        { id: 202, name: "Gasolina Extra", color: "bg-blue-100 text-blue-800 border-blue-200" }
-      ]
-    }
-  ];
+export default function TestPEMH({ stationId, workOrderId, onCancel, onSave, initialData }) {
+    console.log('[TestPEMH] Component initialized');
 
-  const [readings, setReadings] = useState({});
-  const [excludedTankIds, setExcludedTankIds] = useState([]);
-  
-  // NUEVO: Estado para excluir compartimentos individuales
-  const [excludedCompIds, setExcludedCompIds] = useState([]);
+    // MOCK DATA: (Mantener tu lógica de carga de tanques)
+    const initialTanks = [
+        {
+            id: 10,
+            code: "T-1",
+            compartments: [
+                { id: 101, name: "Diesel", color: "bg-yellow-100 text-yellow-800 border-yellow-200" }
+            ]
+        },
+        {
+            id: 20,
+            code: "T-2",
+            compartments: [
+                { id: 201, name: "Gasolina Corriente", color: "bg-red-100 text-red-800 border-red-200" },
+                { id: 202, name: "Gasolina Extra", color: "bg-blue-100 text-blue-800 border-blue-200" }
+            ]
+        }
+    ];
 
-  useEffect(() => {
-    // ... (Tu lógica de inicialización se mantiene igual)
-    const initialReadings = {};
-    initialTanks.forEach(tank => {
-        tank.compartments.forEach(comp => {
-            initialReadings[comp.id] = {
-                start_time: '',
-                end_time: '',
-                initial_height: '',
-                final_height: ''
-            };
-        });
+    const [readings, setReadings] = useState(() => {
+        if (initialData && Array.isArray(initialData)) {
+            const mapped = {};
+            initialData.forEach(item => {
+                mapped[item.compartment_id] = {
+                    start_time: item.start_time || '',
+                    end_time: item.end_time || '',
+                    initial_height: item.initial_height !== undefined ? item.initial_height : '',
+                    final_height: item.final_height !== undefined ? item.final_height : ''
+                };
+            });
+            return mapped;
+        }
+        return {};
     });
-    setReadings(initialReadings);
-  }, []);
 
-  const handleInputChange = (compartmentId, field, value) => {
-    setReadings(prev => ({
-        ...prev,
-        [compartmentId]: { ...prev[compartmentId], [field]: value }
-    }));
-  };
+    const [excludedTankIds, setExcludedTankIds] = useState(() => {
+        if (initialData && Array.isArray(initialData)) {
+            const includedTankIds = initialData.map(item => item.tank_id);
+            return initialTanks
+                .filter(t => !includedTankIds.includes(t.id))
+                .map(t => t.id);
+        }
+        return [];
+    });
 
-  const toggleTankExclusion = (tankId) => {
-    setExcludedTankIds(prev => 
-        prev.includes(tankId) ? prev.filter(id => id !== tankId) : [...prev, tankId]
-    );
-  };
+    const [excludedCompIds, setExcludedCompIds] = useState(() => {
+        if (initialData && Array.isArray(initialData)) {
+            const includedCompIds = initialData.map(item => item.compartment_id);
+            const allComps = initialTanks.flatMap(t => t.compartments);
+            return allComps
+                .filter(c => !includedCompIds.includes(c.id))
+                .map(c => c.id);
+        }
+        return [];
+    });
 
-  // NUEVO: Función para excluir/restaurar compartimentos
-  const toggleCompExclusion = (compId) => {
-    setExcludedCompIds(prev => 
-        prev.includes(compId) ? prev.filter(id => id !== compId) : [...prev, compId]
-    );
-  };
+    useEffect(() => {
+        if (!initialData) {
+            const initialReadings = {};
+            initialTanks.forEach(tank => {
+                tank.compartments.forEach(comp => {
+                    initialReadings[comp.id] = {
+                        start_time: '',
+                        end_time: '',
+                        initial_height: '',
+                        final_height: ''
+                    };
+                });
+            });
+            setReadings(initialReadings);
+        }
+    }, [initialData]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const payload = [];
-    let hasErrors = false; // NUEVA: Bandera de error
+    const handleInputChange = (compartmentId, field, value) => {
+        setReadings(prev => ({
+            ...prev,
+            [compartmentId]: { ...prev[compartmentId], [field]: value }
+        }));
+    };
 
-    initialTanks.forEach(tank => {
-        if (excludedTankIds.includes(tank.id)) return;
+    const toggleTankExclusion = (tankId) => {
+        setExcludedTankIds(prev =>
+            prev.includes(tankId) ? prev.filter(id => id !== tankId) : [...prev, tankId]
+        );
+    };
 
-        tank.compartments.forEach(comp => {
-            if (excludedCompIds.includes(comp.id)) return;
+    const toggleCompExclusion = (compId) => {
+        setExcludedCompIds(prev =>
+            prev.includes(compId) ? prev.filter(id => id !== compId) : [...prev, compId]
+        );
+    };
 
-            const data = readings[comp.id];
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        const payload = [];
+        let hasErrors = false;
 
-            if (!data.start_time || !data.end_time || data.initial_height === '' || data.final_height === '') {
-                console.error(`[TestPEMH] Error: Missing data for Compartment ID ${comp.id} in Tank ${tank.code}`, data);
-                hasErrors = true;
-            }
+        initialTanks.forEach(tank => {
+            if (excludedTankIds.includes(tank.id)) return;
 
-            payload.push({
-                work_order_id: workOrderId,
-                tank_id: tank.id,
-                compartment_id: comp.id,
-                start_time: data.start_time,
-                end_time: data.end_time,
-                initial_height: Number(data.initial_height),
-                final_height: Number(data.final_height)
+            tank.compartments.forEach(comp => {
+                if (excludedCompIds.includes(comp.id)) return;
+
+                const data = readings[comp.id];
+
+                if (!data.start_time || !data.end_time || data.initial_height === '' || data.final_height === '') {
+                    console.error(`[TestPEMH] Error: Missing data for Compartment ID ${comp.id} in Tank ${tank.code}`, data);
+                    hasErrors = true;
+                }
+
+                payload.push({
+                    work_order_id: workOrderId,
+                    tank_id: tank.id,
+                    compartment_id: comp.id,
+                    start_time: data.start_time,
+                    end_time: data.end_time,
+                    initial_height: Number(data.initial_height),
+                    final_height: Number(data.final_height)
+                });
             });
         });
-    });
 
-    if (hasErrors) {
-        console.error('[TestPEMH] Payload generation aborted due to missing fields.');
-        alert('Por favor complete todos los campos de los compartimentos activos.');
-        return;
-    }
+        if (hasErrors) {
+            console.error('[TestPEMH] Payload generation aborted due to missing fields.');
+            alert('Por favor complete todos los campos de los compartimentos activos.');
+            return;
+        }
 
-    console.log('[TestPEMH] Payload generated successfully:', payload);
-    onSave(payload);
-  };
+        console.log('[TestPEMH] Payload generated successfully:', payload);
+        onSave(payload);
+    };
 
-  const activeTanks = initialTanks.filter(t => !excludedTankIds.includes(t.id));
-  const hiddenTanks = initialTanks.filter(t => excludedTankIds.includes(t.id));
+    const activeTanks = initialTanks.filter(t => !excludedTankIds.includes(t.id));
+    const hiddenTanks = initialTanks.filter(t => excludedTankIds.includes(t.id));
 
-  return (
-    <div className="animate-in slide-in-from-right-4 duration-300">
-        <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center space-x-4">
-                <button onClick={onCancel} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-500">
-                    <ArrowLeft size={20} />
-                </button>
-                <div>
-                    <h2 className="text-xl font-bold text-slate-800">PEMH Test Registration</h2>
-                    <p className="text-sm text-slate-500">Prueba de Estanqueidad de Manholes</p>
-                </div>
-            </div>
-            
-            {hiddenTanks.length > 0 && (
-                <div className="flex gap-2">
-                    {hiddenTanks.map(t => (
-                        <button 
-                            key={t.id}
-                            onClick={() => toggleTankExclusion(t.id)}
-                            className="flex items-center text-xs bg-orange-50 text-orange-600 px-3 py-1 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors"
-                        >
-                            <RotateCcw size={12} className="mr-1" />
-                            Restore {t.code}
-                        </button>
-                    ))}
-                </div>
-            )}
-        </div>
+    const restoreButtons = hiddenTanks.length > 0 ? (
+        hiddenTanks.map(tank => (
+            <button key={tank.id} type="button" onClick={() => toggleTankExclusion(tank.id)} className="flex items-center text-xs bg-orange-50 text-orange-600 px-3 py-1 rounded-full border border-orange-200 hover:bg-orange-100 transition-colors">
+                <RotateCcw size={12} className="mr-1" /> Restore Tank {tank.code}
+            </button>
+        ))
+    ) : null;
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+    return (
+        <TestWrapper
+            title="PEMH Test Registration"
+            subtitle="Prueba de Estanqueidad de Manholes"
+            onCancel={onCancel}
+            onSubmit={handleSubmit}
+            isSubmitDisabled={activeTanks.length === 0}
+            submitText="Save Data"
+            headerActions={restoreButtons}
+        >
             {activeTanks.length === 0 ? (
                 <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
                     <AlertCircle className="mx-auto text-slate-300 mb-2" size={32} />
@@ -144,7 +165,6 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                 </div>
             ) : (
                 activeTanks.map(tank => {
-                    // Filtrar compartimentos visibles
                     const visibleComps = tank.compartments.filter(c => !excludedCompIds.includes(c.id));
                     const hiddenComps = tank.compartments.filter(c => excludedCompIds.includes(c.id));
 
@@ -157,7 +177,7 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                         <div className="bg-blue-600 w-1 h-4 rounded-full"></div>
                                         <h3 className="font-bold text-slate-700">Tank {tank.code}</h3>
                                     </div>
-                                    
+
                                     {/* Botones para restaurar compartimentos ocultos */}
                                     {hiddenComps.length > 0 && (
                                         <div className="flex gap-2">
@@ -176,8 +196,8 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                     )}
                                 </div>
 
-                                <button 
-                                    type="button" 
+                                <button
+                                    type="button"
                                     onClick={() => toggleTankExclusion(tank.id)}
                                     className="text-slate-400 hover:text-red-500 hover:bg-red-50 p-1.5 rounded transition-colors"
                                     title="Exclude entire tank"
@@ -191,15 +211,15 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                 {visibleComps.length > 0 ? (
                                     visibleComps.map(comp => (
                                         <div key={comp.id} className="p-4 hover:bg-slate-50/50 transition-colors group relative">
-                                            
+
                                             {/* Header del Compartimento */}
                                             <div className="mb-3 flex justify-between items-center">
                                                 <span className={`text-xs font-bold px-2 py-1 rounded border uppercase tracking-wide ${comp.color}`}>
                                                     {comp.name}
                                                 </span>
-                                                
+
                                                 {/* NUEVO: Botón eliminar compartimento */}
-                                                <button 
+                                                <button
                                                     type="button"
                                                     onClick={() => toggleCompExclusion(comp.id)}
                                                     className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-all p-1"
@@ -215,8 +235,8 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                                     <label className="text-xs font-semibold text-slate-500 flex items-center">
                                                         <Clock size={12} className="mr-1" /> Start Time
                                                     </label>
-                                                    <input 
-                                                        type="time" 
+                                                    <input
+                                                        type="time"
                                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-900 text-white focus:ring-1 focus:ring-blue-500 outline-none"
                                                         value={readings[comp.id]?.start_time || ''}
                                                         onChange={(e) => handleInputChange(comp.id, 'start_time', e.target.value)}
@@ -227,8 +247,8 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                                     <label className="text-xs font-semibold text-slate-500 flex items-center">
                                                         <Clock size={12} className="mr-1" /> End Time
                                                     </label>
-                                                    <input 
-                                                        type="time" 
+                                                    <input
+                                                        type="time"
                                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-900 text-white focus:ring-1 focus:ring-blue-500 outline-none"
                                                         value={readings[comp.id]?.end_time || ''}
                                                         onChange={(e) => handleInputChange(comp.id, 'end_time', e.target.value)}
@@ -239,8 +259,8 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                                     <label className="text-xs font-semibold text-slate-500 flex items-center">
                                                         <Ruler size={12} className="mr-1" /> Initial Height (mm)
                                                     </label>
-                                                    <input 
-                                                        type="number" 
+                                                    <input
+                                                        type="number"
                                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-900 text-white focus:ring-1 focus:ring-blue-500 outline-none"
                                                         placeholder="0.00"
                                                         value={readings[comp.id]?.initial_height || ''}
@@ -252,8 +272,8 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                                                     <label className="text-xs font-semibold text-slate-500 flex items-center">
                                                         <Ruler size={12} className="mr-1" /> Final Height (mm)
                                                     </label>
-                                                    <input 
-                                                        type="number" 
+                                                    <input
+                                                        type="number"
                                                         className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm bg-slate-900 text-white focus:ring-1 focus:ring-blue-500 outline-none"
                                                         placeholder="0.00"
                                                         value={readings[comp.id]?.final_height || ''}
@@ -275,17 +295,6 @@ export default function TestPEMH({ stationId, workOrderId, onCancel, onSave }) {
                 })
             )}
 
-            <div className="flex justify-end pt-4 border-t border-slate-200">
-                <button 
-                    type="submit"
-                    disabled={activeTanks.length === 0}
-                    className="flex items-center space-x-2 px-6 py-2.5 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
-                >
-                    <Save size={18} />
-                    <span>Save PEMH Data</span>
-                </button>
-            </div>
-        </form>
-    </div>
-  );
+        </TestWrapper>
+    );
 }
