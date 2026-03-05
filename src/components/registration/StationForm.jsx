@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Save, X, ChevronDown, ChevronUp, Plus, Trash2, Edit2, Tag } from 'lucide-react';
 import TankForm from './TankForm';
 import DispenserForm from './DispenserForm';
+import api from '../../services/api';
 
 export default function StationForm({ onCancel, onSave, initialData }) {
   console.log('[StationForm] Component rendered', initialData ? 'in EDIT mode' : 'in CREATE mode');
@@ -24,6 +25,7 @@ export default function StationForm({ onCancel, onSave, initialData }) {
 
   const [activeModal, setActiveModal] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const getFuelName = (id) => {
     const map = {
@@ -70,14 +72,25 @@ export default function StationForm({ onCancel, onSave, initialData }) {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log('[StationForm] Form submitted:', formData);
-    
-    if (initialData) {
-      onSave(formData);
-    } else {
-      onSave({ ...formData, id: Date.now(), status: 'Active' });
+    setIsSubmitting(true);
+
+    try {
+      if (initialData && initialData.id) {
+        console.log('[StationForm] Updating station via API...');
+        await api.patch(`/stations/${initialData.id}`, formData);
+      } else {
+        console.log('[StationForm] Creating new station via API...');
+        await api.post('/stations', formData);
+      }
+
+      onSave();
+    } catch (error) {
+      console.error('[StationForm] Error saving to DB:', error);
+      alert('Hubo un error al guardar. Revisa la consola o asegúrate de que el backend esté corriendo.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -95,101 +108,101 @@ export default function StationForm({ onCancel, onSave, initialData }) {
       <form onSubmit={handleSubmit} className="p-6 space-y-6">
         {/* Company Information */}
         <div className="space-y-4">
-            <h4 className="text-md font-semibold text-slate-800 border-b pb-2">Company Details</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <h4 className="text-md font-semibold text-slate-800 border-b pb-2">Company Details</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Station Name (Commercial) *</label>
-                <input
+              <label className="text-sm font-medium text-slate-700">Station Name (Commercial) *</label>
+              <input
                 name="name"
                 required
                 value={formData.name}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
                 placeholder="Ex: EDS Central"
-                />
+              />
             </div>
             <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">Business Name (Razón Social) *</label>
-                <input
+              <label className="text-sm font-medium text-slate-700">Business Name (Razón Social) *</label>
+              <input
                 name="business_name"
                 required
                 value={formData.business_name}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
                 placeholder="Ex: Inversiones Garcia SAS"
-                />
+              />
             </div>
             <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">NIT / Tax ID *</label>
-                <input
+              <label className="text-sm font-medium text-slate-700">NIT / Tax ID *</label>
+              <input
                 name="nit"
                 required
                 value={formData.nit}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
                 placeholder="Ex: 900.123.456-7"
-                />
+              />
             </div>
             <div className="space-y-2">
-                <label className="text-sm font-medium text-slate-700">City *</label>
-                <input
+              <label className="text-sm font-medium text-slate-700">City *</label>
+              <input
                 name="city"
                 required
                 value={formData.city}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
                 placeholder="Ex: Bogotá"
-                />
+              />
             </div>
             <div className="space-y-2 md:col-span-2">
-                <label className="text-sm font-medium text-slate-700">Address *</label>
-                <input
+              <label className="text-sm font-medium text-slate-700">Address *</label>
+              <input
                 name="address"
                 required
                 value={formData.address}
                 onChange={handleChange}
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
                 placeholder="Ex: Cra 50 # 20-10"
-                />
+              />
             </div>
-            </div>
+          </div>
         </div>
 
         {/* Contact Information */}
         <div className="space-y-4 pt-2">
-            <h4 className="text-md font-semibold text-slate-800 border-b pb-2">Contact Information</h4>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Contact Name</label>
-                    <input
-                    name="contact_name"
-                    value={formData.contact_name}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
-                    placeholder="Manager Name"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Contact Position</label>
-                    <input
-                    name="contact_position"
-                    value={formData.contact_position}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
-                    placeholder="Ex: Administrator"
-                    />
-                </div>
-                <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-700">Contact Phone</label>
-                    <input
-                    name="contact_phone"
-                    value={formData.contact_phone}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
-                    placeholder="Ex: 300 123 4567"
-                    />
-                </div>
+          <h4 className="text-md font-semibold text-slate-800 border-b pb-2">Contact Information</h4>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Contact Name</label>
+              <input
+                name="contact_name"
+                value={formData.contact_name}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
+                placeholder="Manager Name"
+              />
             </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Contact Position</label>
+              <input
+                name="contact_position"
+                value={formData.contact_position}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
+                placeholder="Ex: Administrator"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium text-slate-700">Contact Phone</label>
+              <input
+                name="contact_phone"
+                value={formData.contact_phone}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
+                placeholder="Ex: 300 123 4567"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="border-t border-slate-100 my-6"></div>
@@ -390,10 +403,11 @@ export default function StationForm({ onCancel, onSave, initialData }) {
           </button>
           <button
             type="submit"
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            disabled={isSubmitting}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
             <Save size={18} />
-            <span>{initialData ? 'Update Station' : 'Save Station'}</span>
+            <span>{isSubmitting ? 'Guardando...' : (initialData ? 'Update Station' : 'Save Station')}</span>
           </button>
         </div>
       </form>

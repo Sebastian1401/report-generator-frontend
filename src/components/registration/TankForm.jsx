@@ -1,25 +1,23 @@
 import { useState } from 'react';
 import { Save, X, ToggleLeft, ToggleRight, Cylinder, Tag, Plus } from 'lucide-react';
+import api from '../../services/api';
 
-export default function TankForm({ onCancel, onSave, isNested = false, initialData = null }) {
+export default function TankForm({ onCancel, onSave, isNested = false, initialData = null, stations = [] }) {
   console.log('[TankForm] Component rendered', isNested ? 'in NESTED mode' : 'in NORMAL mode');
-
-  const mockStations = [
-    { id: 1, name: 'EDS Principal' },
-    { id: 2, name: 'EDS Norte' }
-  ];
 
   const mockFuelTypes = [
     { id: 1, name: 'Gasolina Corriente', color: 'bg-red-500' },
     { id: 2, name: 'Diesel', color: 'bg-yellow-400' },
     { id: 3, name: 'Gasolina Extra', color: 'bg-blue-800 text-white' },
   ];
+  
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState(initialData || {
     code: '',
-    type: 'Horizontal',
+    type: 'Bicompartido',
     material: 'ASTM A36',
-    installation_type: 'Underground',
+    installation_type: 'Subterraneo',
     tags: [],
     station_id: '',
     compartments: [
@@ -101,7 +99,7 @@ export default function TankForm({ onCancel, onSave, isNested = false, initialDa
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!isNested && !formData.station_id) return alert('Por favor seleccione una Estación.');
@@ -132,8 +130,27 @@ export default function TankForm({ onCancel, onSave, isNested = false, initialDa
         }))
     };
 
-    console.log('[TankForm] Payload ready for API:', payload);
-    onSave(initialData ? payload : { ...payload, id: Date.now() });
+    if (isNested) {
+        onSave(initialData ? payload : { ...payload, id: Date.now() });
+        return;
+    }
+
+    setIsSubmitting(true);
+    try {
+        if (initialData && initialData.id) {
+            console.log('[TankForm] Updating tank via API...');
+            await api.patch(`/inventory/tanks/${initialData.id}`, payload);
+        } else {
+            console.log('[TankForm] Creating new tank via API...');
+            await api.post('/inventory/tanks', payload);
+        }
+        onSave();
+    } catch (error) {
+        console.error('[TankForm] Error saving to DB:', error);
+        alert('Hubo un error al guardar.');
+    } finally {
+        setIsSubmitting(false);
+    }
   };
 
   return (
@@ -167,7 +184,7 @@ export default function TankForm({ onCancel, onSave, isNested = false, initialDa
                   required={!isNested}
                 >
                   <option value="">Select Station...</option>
-                  {mockStations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
             )}
@@ -361,10 +378,11 @@ export default function TankForm({ onCancel, onSave, isNested = false, initialDa
           </button>
           <button
             type="submit"
-            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+            disabled={isSubmitting}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
             <Save size={18} />
-            <span>{isNested ? 'Add to List' : initialData ? 'Update Tank' : 'Save Tank'}</span>
+            <span>{isSubmitting ? 'Guardando...' : (isNested ? 'Add to List' : initialData ? 'Update Tank' : 'Save Tank')}</span>
           </button>
         </div>
       </form>

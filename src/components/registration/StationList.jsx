@@ -1,46 +1,36 @@
-import { useState } from 'react';
-import { Plus, Search, MapPin, Phone, User } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, Search, MapPin, Phone, User, RefreshCw } from 'lucide-react';
 import StationForm from './StationForm';
+import api from '../../services/api';
 
 export default function StationList() {
   const [isCreating, setIsCreating] = useState(false);
   const [editingStation, setEditingStation] = useState(null);
   
-  const [stations, setStations] = useState([
-    {
-      id: 1,
-      name: 'EDS Principal',
-      business_name: 'Inversiones Garcia SAS',
-      address: 'Cra 45 # 22-10',
-      city: 'Bogotá',
-      nit: '900.555.123-1',
-      contact_name: 'Sebastian Garcia',
-      contact_phone: '3001234567',
-      contact_position: 'Gerente'
-    },
-    {
-      id: 2,
-      name: 'EDS Norte',
-      business_name: 'Inversiones Garcia SAS',
-      address: 'Autonorte Km 20',
-      city: 'Chía',
-      nit: '900.555.123-1',
-      contact_name: 'Carlos Perez',
-      contact_phone: '3109876543',
-      contact_position: 'Administrador'
+  const [stations, setStations] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchStations = async () => {
+    setIsLoading(true);
+    try {
+      const response = await api.get('/stations'); 
+      setStations(response.data.data); 
+    } catch (error) {
+      console.error('No se pudieron cargar las estaciones', error);
+      setStations([]);
+    } finally {
+      setIsLoading(false);
     }
-  ]);
+  };
+
+  useEffect(() => {
+    fetchStations();
+  }, []);
 
   console.log(`[StationList] Rendered. Mode: ${isCreating ? 'Creating' : editingStation ? 'Editing' : 'List'}`);
 
-  const handleSave = (stationData) => {
-    if (editingStation) {
-      console.log('[StationList] Updating station:', stationData);
-      setStations(stations.map(s => s.id === stationData.id ? stationData : s));
-    } else {
-      console.log('[StationList] Saving new station:', stationData);
-      setStations([...stations, stationData]);
-    }
+  const handleSave = () => {
+    fetchStations();
     setIsCreating(false);
     setEditingStation(null);
   };
@@ -57,6 +47,15 @@ export default function StationList() {
         onCancel={handleCancel} 
         onSave={handleSave} 
       />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+        <RefreshCw className="animate-spin mb-4" size={32} />
+        <p>Cargando estaciones desde la base de datos...</p>
+      </div>
     );
   }
 
