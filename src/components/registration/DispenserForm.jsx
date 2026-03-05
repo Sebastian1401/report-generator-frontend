@@ -1,20 +1,17 @@
 import { useState } from 'react';
 import { Save, X, Plus, Fuel, GripVertical, Tag } from 'lucide-react';
+import api from '../../services/api';
 
-export default function DispenserForm({ onCancel, onSave, isNested = false, initialData = null }) {
+export default function DispenserForm({ onCancel, onSave, isNested = false, initialData = null, stations = [] }) {
   console.log('[DispenserForm] Component rendered', isNested ? 'in NESTED mode' : 'in NORMAL mode');
-
-  const mockStations = [
-    { id: 1, name: 'EDS Principal' },
-    { id: 2, name: 'EDS Norte' },
-    { id: 3, name: 'EDS Sur' }
-  ];
 
   const mockFuelTypes = [
     { id: 1, name: 'Gasolina Corriente', color: 'bg-red-500', tags: ['mg_roja', 'corriente'] },
     { id: 2, name: 'Diesel', color: 'bg-yellow-400', tags: ['mg_amarilla', 'diesel'] },
     { id: 3, name: 'Gasolina Extra', color: 'bg-blue-800 text-white', tags: ['mg_azul', 'extra'] },
   ];
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState(initialData || {
     station_id: '',
@@ -41,10 +38,10 @@ export default function DispenserForm({ onCancel, onSave, isNested = false, init
 
   const handleHoseCountChange = (e) => {
     const val = e.target.value;
-    
+
     if (val === '') {
-        setHoseCount('');
-        return; 
+      setHoseCount('');
+      return;
     }
 
     const count = parseInt(val);
@@ -73,27 +70,27 @@ export default function DispenserForm({ onCancel, onSave, isNested = false, init
     updatedHoses[index] = { ...updatedHoses[index], [field]: value };
 
     if (field === 'fuel_type_id') {
-        const selectedFuel = mockFuelTypes.find(f => f.id === Number(value));
-        
-        if (selectedFuel) {
-            const newTags = selectedFuel.tags;
+      const selectedFuel = mockFuelTypes.find(f => f.id === Number(value));
 
-            const currentHoseTags = new Set(updatedHoses[index].tags || []);
-            newTags.forEach(tag => currentHoseTags.add(tag));
-            updatedHoses[index].tags = Array.from(currentHoseTags);
+      if (selectedFuel) {
+        const newTags = selectedFuel.tags;
 
-            setFormData(prev => {
-                const currentDispenserTags = new Set(prev.tags || []);
-                newTags.forEach(tag => currentDispenserTags.add(tag));
-                
-                return { 
-                    ...prev, 
-                    hoses: updatedHoses, 
-                    tags: Array.from(currentDispenserTags) 
-                };
-            });
-            return;
-        }
+        const currentHoseTags = new Set(updatedHoses[index].tags || []);
+        newTags.forEach(tag => currentHoseTags.add(tag));
+        updatedHoses[index].tags = Array.from(currentHoseTags);
+
+        setFormData(prev => {
+          const currentDispenserTags = new Set(prev.tags || []);
+          newTags.forEach(tag => currentDispenserTags.add(tag));
+
+          return {
+            ...prev,
+            hoses: updatedHoses,
+            tags: Array.from(currentDispenserTags)
+          };
+        });
+        return;
+      }
     }
 
     setFormData(prev => ({ ...prev, hoses: updatedHoses }));
@@ -150,28 +147,47 @@ export default function DispenserForm({ onCancel, onSave, isNested = false, init
     }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!isNested && !formData.station_id) return alert('Por favor seleccione una Estación.');
     if (!formData.dispenser_number) return alert('Por favor ingrese el número del Dispensador.');
     if (formData.hoses.length === 0) return alert('Debe configurar al menos una manguera.');
-    
+
     const missingFuel = formData.hoses.some(h => !h.fuel_type_id);
     if (missingFuel) return alert('Asegúrese de seleccionar el producto para todas las mangueras.');
 
     const payload = {
       ...formData,
       dispenser_number: Number(formData.dispenser_number),
-      station_id: isNested ? formData.station_id : Number(formData.station_id), 
+      station_id: isNested ? formData.station_id : Number(formData.station_id),
       hoses: formData.hoses.map(h => ({
         ...h,
         fuel_type_id: Number(h.fuel_type_id)
       }))
     };
 
-    console.log('[DispenserForm] Payload ready:', payload);
-    onSave(initialData ? payload : { ...payload, id: Date.now() });
+    if (isNested) {
+      onSave(initialData ? payload : { ...payload, id: Date.now() });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (initialData && initialData.id) {
+        console.log('[DispenserForm] Updating dispenser via API...');
+        await api.patch(`/inventory/dispensers/${initialData.id}`, payload);
+      } else {
+        console.log('[DispenserForm] Creating new dispenser via API...');
+        await api.post('/inventory/dispensers', payload);
+      }
+      onSave();
+    } catch (error) {
+      console.error('[DispenserForm] Error saving to DB:', error);
+      alert('Hubo un error al guardar. Verifica la consola.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -186,12 +202,12 @@ export default function DispenserForm({ onCancel, onSave, isNested = false, init
       </div>
 
       <form onSubmit={handleSubmit} className="p-6 space-y-8">
-        
+
         {/* SECTION 1: UBICACIÓN Y BÁSICOS */}
         <div>
           <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Location & Basic Info</h4>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            
+
             {!isNested && (
               <div className="space-y-2">
                 <label className="text-sm font-medium text-slate-700">Station *</label>
@@ -203,7 +219,7 @@ export default function DispenserForm({ onCancel, onSave, isNested = false, init
                   required={!isNested}
                 >
                   <option value="">Select Station...</option>
-                  {mockStations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                  {stations.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
             )}
@@ -250,13 +266,13 @@ export default function DispenserForm({ onCancel, onSave, isNested = false, init
             </div>
             <div className="space-y-2">
               <label className="text-sm font-medium text-slate-700">NII (Dispenser)</label>
-              <input 
-                name="nii" 
-                value={formData.nii} 
-                onChange={handleChange} 
-                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none" 
-                placeholder="Ex: 98765" 
-                /* Removed required */
+              <input
+                name="nii"
+                value={formData.nii}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-600 outline-none"
+                placeholder="Ex: 98765"
+              /* Removed required */
               />
             </div>
           </div>
@@ -412,9 +428,9 @@ export default function DispenserForm({ onCancel, onSave, isNested = false, init
               </div>
             ))}
             {formData.hoses.length === 0 && (
-               <div className="text-center py-8 text-slate-400 italic bg-slate-50 rounded-lg border border-dashed border-slate-200">
-                  Set the number of hoses to start configuration.
-               </div>
+              <div className="text-center py-8 text-slate-400 italic bg-slate-50 rounded-lg border border-dashed border-slate-200">
+                Set the number of hoses to start configuration.
+              </div>
             )}
           </div>
         </div>
@@ -422,9 +438,13 @@ export default function DispenserForm({ onCancel, onSave, isNested = false, init
         {/* ACTIONS */}
         <div className="flex justify-end space-x-3 pt-6 border-t border-slate-100">
           <button type="button" onClick={onCancel} className="px-4 py-2 text-slate-600 font-medium hover:bg-slate-100 rounded-lg transition-colors">Cancel</button>
-          <button type="submit" className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm">
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="flex items-center space-x-2 px-6 py-2 bg-blue-600 text-white font-medium rounded-lg hover:bg-blue-700 transition-colors shadow-sm disabled:bg-slate-400 disabled:cursor-not-allowed"
+          >
             <Save size={18} />
-            <span>{isNested ? 'Add to List' : initialData ? 'Update Dispenser' : 'Save Dispenser'}</span>
+            <span>{isSubmitting ? 'Guardando...' : (isNested ? 'Add to List' : initialData ? 'Update Dispenser' : 'Save Dispenser')}</span>
           </button>
         </div>
       </form>

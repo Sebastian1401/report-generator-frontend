@@ -1,56 +1,51 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Search, X, ChevronDown, MapPin, Fuel, Tag, Zap } from 'lucide-react';
+import { Plus, Search, X, ChevronDown, MapPin, Fuel, Tag, Zap, RefreshCw } from 'lucide-react';
 import DispenserForm from './DispenserForm';
+import api from '../../services/api';
 
 export default function DispenserList() {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedStation, setSelectedStation] = useState(null);
 
-  const mockStations = [
-    { id: 1, name: 'EDS Principal', address: 'Cra 45 # 22-10' },
-    { id: 2, name: 'EDS Norte', address: 'Autonorte Km 20' },
-    { id: 3, name: 'EDS Sur', address: 'Av Boyaca # 50' },
-  ];
+  const [stations, setStations] = useState([]);
+  const [dispensers, setDispensers] = useState([]);
 
-  const [dispensers, setDispensers] = useState([
-    {
-      "dispenser_number": 1,
-      "island": "1",
-      "brand": "Gilbarco",
-      "model": "Encore 500",
-      "serial": "123123",
-      "nii": "098098",
-      "station_id": 1,
-      "tags": ["mg_roja", "mg_amarilla"],
-      "id": 1,
-      "hoses": [
-        { "position": 1, "nii": "0987", "tags": ["mg_roja"], "id": 1, "fuel_type_id": 1 },
-        { "position": 2, "nii": "0988", "tags": ["mg_amarilla"], "id": 2, "fuel_type_id": 2 },
-        { "position": 3, "nii": "289161", "tags": ["cm_rojo", "corriente"], "id": 3, "fuel_type_id": 1 },
-        { "position": 4, "nii": "289162", "tags": ["cm_amarillo", "diesel"], "id": 4, "fuel_type_id": 2 }
-      ]
-    },
-    {
-      "dispenser_number": 2,
-      "island": "2",
-      "brand": "Wayne",
-      "model": "SH22",
-      "serial": "7876213",
-      "nii": "289167",
-      "station_id": 1,
-      "tags": ["cm_amarillo", "cm_rojo", "diesel", "corriente"],
-      "id": 2,
-      "hoses": [
-        { "position": 1, "nii": "456", "tags": ["mg_roja"], "id": 5, "fuel_type_id": 1 },
-        { "position": 2, "nii": "765", "tags": null, "id": 6, "fuel_type_id": 2 }
-      ]
-    }
-  ]);
+  const [isLoadingStations, setIsLoadingStations] = useState(true);
+  const [isLoadingDispensers, setIsLoadingDispensers] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [editingDispenser, setEditingDispenser] = useState(null);
   const searchRef = useRef(null);
+
+  const fetchStations = async () => {
+    setIsLoadingStations(true);
+    try {
+      const res = await api.get('/stations');
+      setStations(res.data.data || []);
+    } catch (error) {
+      console.error('Error fetching stations:', error);
+    } finally {
+      setIsLoadingStations(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchStations();
+  }, []);
+
+  const fetchDispensersByStation = async (stationId) => {
+    setIsLoadingDispensers(true);
+    try {
+      const res = await api.get(`/inventory/dispensers/${stationId}`);
+      setDispensers(res.data.data || []);
+    } catch (error) {
+      console.error('Error fetching dispensers:', error);
+      setDispensers([]);
+    } finally {
+      setIsLoadingDispensers(false);
+    }
+  };
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -60,7 +55,7 @@ export default function DispenserList() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [searchRef]);
 
-  const filteredStations = mockStations.filter(station =>
+  const filteredStations = stations.filter(station =>
     station.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -68,6 +63,14 @@ export default function DispenserList() {
     setSelectedStation(station);
     setSearchQuery(station.name);
     setIsSearchOpen(false);
+    fetchDispensersByStation(station.id);
+  };
+
+  const clearSelection = () => {
+    setSelectedStation(null);
+    setSearchQuery('');
+    setIsSearchOpen(true);
+    setDispensers([]);
   };
 
   const getFuelInfo = (id) => {
@@ -79,27 +82,30 @@ export default function DispenserList() {
     return fuels[id] || { name: 'Unknown', color: 'bg-gray-300' };
   };
 
-  const handleSave = (newPayload) => {
-    console.log('[DispenserList] Payload:', newPayload);
-
-    if (editingDispenser) {
-      setDispensers(dispensers.map(d => d.id === newPayload.id ? newPayload : d));
-    } else {
-      setDispensers([...dispensers, newPayload]);
+  const handleSave = () => {
+    if (selectedStation) {
+      fetchDispensersByStation(selectedStation.id);
     }
-
     setIsCreating(false);
     setEditingDispenser(null);
   };
 
-  const visibleDispensers = selectedStation
-    ? dispensers.filter(d => d.station_id === selectedStation.id)
-    : [];
+  const visibleDispensers = dispensers;
+
+  if (isLoadingStations) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+        <RefreshCw className="animate-spin mb-4" size={32} />
+        <p>Cargando lista de estaciones...</p>
+      </div>
+    );
+  }
 
   if (isCreating || editingDispenser) {
     return (
       <DispenserForm
         initialData={editingDispenser}
+        stations={stations}
         onCancel={() => { setIsCreating(false); setEditingDispenser(null); }}
         onSave={handleSave}
       />
@@ -165,7 +171,10 @@ export default function DispenserList() {
         <>
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-slate-700">Dispensers at <span className="text-blue-600">{selectedStation.name}</span></h3>
-            <span className="text-sm bg-slate-100 text-slate-600 px-2 py-1 rounded-full">{visibleDispensers.length} found</span>
+            <span className="text-sm bg-slate-100 text-slate-600 px-2 py-1 rounded-full flex items-center">
+              {isLoadingDispensers && <RefreshCw size={14} className="animate-spin mr-1" />}
+              {visibleDispensers.length} found
+            </span>
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">

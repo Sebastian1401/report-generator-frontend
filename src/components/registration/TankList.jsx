@@ -1,60 +1,51 @@
 import { useState, useRef, useEffect } from 'react';
-import { Plus, Cylinder, Droplet, Search, X, ChevronDown, MapPin } from 'lucide-react';
+import { Plus, Cylinder, Droplet, Search, X, ChevronDown, MapPin, RefreshCw } from 'lucide-react';
 import TankForm from './TankForm';
+import api from '../../services/api';
 
 export default function TankList() {
     const [isCreating, setIsCreating] = useState(false);
     const [selectedStation, setSelectedStation] = useState(null);
 
-    const mockStations = [
-        { id: 1, name: 'EDS Principal', address: 'Cra 45 # 22-10' },
-        { id: 2, name: 'EDS Norte', address: 'Autonorte Km 20' },
-        { id: 3, name: 'EDS Sur', address: 'Av Boyaca # 50' },
-    ];
+    const [stations, setStations] = useState([]);
+    const [tanks, setTanks] = useState([]);
 
-    const [tanks, setTanks] = useState([
-        {
-            "code": "432",
-            "type": "Unico",
-            "material": "ASTM A36",
-            "installation_type": "Subterraneo",
-            "tags": ["blanco", "vlv_sobrellenado"],
-            "station_id": 1,
-            "id": 11,
-            "compartments": [
-                { "code": "2", "capacity_nominal": "10000.00", "capacity_operational": "9902.00", "id": 2, "fuel_type_id": 2 }
-            ]
-        },
-        {
-            "code": "433",
-            "type": "Unico",
-            "material": "ASTM A36",
-            "installation_type": "Subterraneo",
-            "tags": ["blanco"],
-            "station_id": 1,
-            "id": 12,
-            "compartments": [
-                { "code": "3", "capacity_nominal": "10000.00", "capacity_operational": "9903.00", "id": 3, "fuel_type_id": 1 }
-            ]
-        },
-        {
-            "code": "T-Norte-1",
-            "type": "Unico",
-            "material": "Fiberglass",
-            "installation_type": "Subterraneo",
-            "tags": [],
-            "station_id": 2,
-            "id": 10,
-            "compartments": [
-                { "code": "1", "capacity_nominal": "5000.00", "capacity_operational": "4800.00", "id": 1, "fuel_type_id": 3 }
-            ]
-        }
-    ]);
+    const [isLoadingStations, setIsLoadingStations] = useState(true);
+    const [isLoadingTanks, setIsLoadingTanks] = useState(false);
 
     const [searchQuery, setSearchQuery] = useState('');
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [editingTank, setEditingTank] = useState(null);
     const searchRef = useRef(null);
+
+    const fetchStations = async () => {
+        setIsLoadingStations(true);
+        try {
+            const res = await api.get('/stations');
+            setStations(res.data.data || []);
+        } catch (error) {
+            console.error('Error fetching stations:', error);
+        } finally {
+            setIsLoadingStations(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchStations();
+    }, []);
+
+    const fetchTanksByStation = async (stationId) => {
+        setIsLoadingTanks(true);
+        try {
+            const res = await api.get(`/inventory/tanks/${stationId}`);
+            setTanks(res.data.data || []);
+        } catch (error) {
+            console.error('Error fetching tanks:', error);
+            setTanks([]);
+        } finally {
+            setIsLoadingTanks(false);
+        }
+    };
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -66,7 +57,7 @@ export default function TankList() {
         return () => document.removeEventListener("mousedown", handleClickOutside);
     }, [searchRef]);
 
-    const filteredStations = mockStations.filter(station =>
+    const filteredStations = stations.filter(station =>
         station.name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -74,13 +65,14 @@ export default function TankList() {
         setSelectedStation(station);
         setSearchQuery(station.name);
         setIsSearchOpen(false);
-        console.log(`[TankList] Station filtered by: ${station.name}`);
+        fetchTanksByStation(station.id);
     };
 
     const clearSelection = () => {
         setSelectedStation(null);
         setSearchQuery('');
         setIsSearchOpen(true);
+        setTanks([]);
     };
 
     const getFuelInfo = (id) => {
@@ -92,27 +84,30 @@ export default function TankList() {
         return fuels[id] || { name: 'Unknown', color: 'bg-gray-100 text-gray-500' };
     };
 
-    const handleSave = (newTankPayload) => {
-        console.log('[TankList] Received payload:', newTankPayload);
-
-        if (editingTank) {
-            setTanks(tanks.map(t => t.id === newTankPayload.id ? newTankPayload : t));
-        } else {
-            setTanks([...tanks, newTankPayload]);
+    const handleSave = () => {
+        if (selectedStation) {
+            fetchTanksByStation(selectedStation.id);
         }
-
         setIsCreating(false);
         setEditingTank(null);
     };
 
-    const visibleTanks = selectedStation
-        ? tanks.filter(t => t.station_id === selectedStation.id)
-        : [];
+    const visibleTanks = tanks;
+
+    if (isLoadingStations) {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400">
+                <RefreshCw className="animate-spin mb-4" size={32} />
+                <p>Cargando lista de estaciones...</p>
+            </div>
+        );
+    }
 
     if (isCreating || editingTank) {
         return (
             <TankForm
                 initialData={editingTank}
+                stations={stations}
                 onCancel={() => { setIsCreating(false); setEditingTank(null); }}
                 onSave={handleSave}
             />
@@ -205,7 +200,8 @@ export default function TankList() {
                         <h3 className="text-lg font-semibold text-slate-700">
                             Tanks at <span className="text-blue-600">{selectedStation.name}</span>
                         </h3>
-                        <span className="text-sm bg-slate-100 text-slate-600 px-2 py-1 rounded-full">
+                        <span className="text-sm bg-slate-100 text-slate-600 px-2 py-1 rounded-full flex items-center">
+                            {isLoadingTanks ? <RefreshCw size={14} className="animate-spin mr-1" /> : null}
                             {visibleTanks.length} found
                         </span>
                     </div>
